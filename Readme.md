@@ -1,4 +1,5 @@
-## **rdiff (rust-diff)** *(Rolling Hash based file diff tool coded in rust-lang)*
+## **rdiff (rust-diff)** 
+### *Rolling Hash based file diff tool coded in rust-lang*
 ***
 ***
 #### Requirements:
@@ -16,17 +17,17 @@ if no make utility:
 
 #### Usage:
     ```
-    ./target/release/rrdiff file1 file2 <chunk_size>
+    ./target/release/rdiff file1 file2 <chunk_size>
     ```
 
 ##### Default chunk size is 4 if none provided
 
 #### Examples:
     ```
-        ./target/release/rrdiff file1 file2
-        ./target/release/rrdiff file1 file2 5
-        ./target/release/rrdiff file1 file2 16
-        ./target/release/rrdiff file1 file2 33
+        ./target/release/rdiff file1 file2
+        ./target/release/rdiff file1 file2 5
+        ./target/release/rdiff file1 file2 16
+        ./target/release/rdiff file1 file2 33
     ```
 ***
 ***
