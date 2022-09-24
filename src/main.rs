@@ -28,13 +28,13 @@ fn main() {
         }
     }
 
-    let cmn = Common {chunk_size: c_size};
+    let mut cmn = Common::new(c_size);
     
     let res = cmn.file_to_chunk_hash_list(&file1.unwrap());
     
     if let Some(hash_list) = res {
         if let Some(deltas) = cmn.diff(&hash_list, &file2.unwrap()) {
-            println!("Deltas: {:#?}", deltas);
+            // println!("Deltas: {:#?}", deltas);
         }
     }
     

@@ -35,15 +35,31 @@ type DeltaMap = HashMap<usize, Chunk>;
 type PositionMap<'a> = HashMap<&'a u128, usize>;
 
 #[derive(Debug)]
-pub struct Common { pub chunk_size: usize, }
+pub struct Common { 
+    file1_size: usize,
+    file2_size: usize,
+    chunk_size: usize,
+    file1_data: Vec<u8>,
+    file2_data: Vec<u8>,
+}
 
 impl Common {
+    pub fn new(chunk_size: usize) -> Self {
+        Self {
+            chunk_size,
+            file1_size: 0,
+            file2_size: 0,
+            file1_data: Vec::new(),
+            file2_data: Vec::new(),
+        }
+    }
+
     // function to find diff between the files
     pub fn diff(
-        &self, 
+        &mut self, 
         hash_list: &HashList, 
         path: &str
-    ) -> Option<DeltaMap> {
+    ) -> Option<(DeltaMap)> {
         let file = File::open(path);
 
         if let Err(e) = file {
@@ -54,16 +70,18 @@ impl Common {
         let mut file = file.unwrap();
         
         let m_dat = file.metadata().ok()?;
-        if !self.has_at_least_2_chunks(m_dat.len() as usize) {
+        let f_size = m_dat.len() as usize;
+        if !self.has_at_least_2_chunks(f_size) {
             println!("\nFile {} must contain at least 2 chunks!!\n", path);
             return None;
         }
+        self.file2_size = f_size;
         // trick to read char by char is here! (u8 buf of size 1)
         let mut buffer = [0u8; 1];
         let mut delta_map = DeltaMap::new();
         let mut problem_bytes = Vec::<u8>::new();
         let mut data_buf = Vec::with_capacity(self.chunk_size);
-        let mut position_map = self.hash_list_to_position_map(hash_list);
+        let mut position_map = Self::hash_list_to_position_map(hash_list);
         
         // iterate over file char by char
         loop {
@@ -72,7 +90,7 @@ impl Common {
             if read_count != 1 { break; }
             // push each char into buffer
             data_buf.push(buffer[0]);
-            
+            self.file2_data.push(buffer[0]);
             // continue until data_buf is of chunk_size 
             if(data_buf.len() < self.chunk_size) { continue; }
 
@@ -116,7 +134,42 @@ impl Common {
             &hash_list, 
             &mut delta_map
         );
+        self.patch(&delta_map);
         Some(delta_map)
+    }
+
+    pub fn patch(&self, deltas: &DeltaMap) {
+        let num_of_chunks = self.calculate_num_of_chunks() as usize;
+        let mut end: usize;
+        let f_size = self.file2_size;
+        let mut pb_count = 0;
+        for i in 0..num_of_chunks {
+            if let Some(chunk) = deltas.get(&i) {
+                // println!("{:#?}", chunk);
+                end = chunk.end;
+                if end > f_size {
+                    end = f_size;
+                }
+                if chunk.problem_bytes.len() == 0 {
+                    
+                    // print!("{}", String::from_utf8_lossy(&self.file1_data[chunk.start..end]));
+                } else {
+                    pb_count += 1;
+                    // println!("{:#?}", chunk);
+                    // let with_patch = &self.file2_data[chunk.start..end];
+                    // let without_patch = Vec::<u8>::new();
+                    // let start = chunk.start + chunk.problem_bytes.len();
+
+                    println!("\n+{}+", String::from_utf8_lossy(&chunk.problem_bytes));
+                    println!("\n-{}-", String::from_utf8_lossy(&self.file2_data[chunk.start..end]));
+                }
+            }
+        }
+        if pb_count > 0 {
+            // println!("\n{} patches applied!.", pb_count);
+        } else {
+            println!("\nNo change detected!.");
+        }
     }
 
     // function to fill chunks we missed during diff operation
@@ -141,7 +194,6 @@ impl Common {
     }
     
     pub fn hash_list_to_position_map<'a>(
-        &'a self, 
         hash_list: &'a HashList
     ) -> PositionMap {
         let mut position_map: HashMap<&u128, usize> = HashMap::new();
@@ -152,7 +204,7 @@ impl Common {
     }
 
     pub fn file_to_chunk_hash_list<'a>(
-        &self, 
+        &mut self, 
         path: &'a str
     ) -> Option<Vec<u128>> {
         let mut file = File::open(path);
@@ -165,11 +217,12 @@ impl Common {
         let mut file = file.unwrap();
         
         let m_dat = file.metadata().ok()?;
-
-        if !self.has_at_least_2_chunks(m_dat.len() as usize) {
+        let f_size = m_dat.len() as usize;
+        if !self.has_at_least_2_chunks(f_size) {
             println!("\nFile {} must contain at least 2 chunks!!\n", path);
             return None;
         }
+        self.file1_size = f_size;
 
         let mut buffer = [0u8; 1];
         let mut hash_list: Vec<u128> = Vec::new();
@@ -183,6 +236,7 @@ impl Common {
             }
 
             data_buf.push(buffer[0]);
+            self.file1_data.push(buffer[0]);
             // println!("len: {}", data_buf.len());
             if(data_buf.len() == self.chunk_size) {
                 hash_list.push(hash128_with_seed(&data_buf[..], 0u64));
@@ -190,6 +244,10 @@ impl Common {
             }
         }
         Some(hash_list)
+    }
+
+    fn calculate_num_of_chunks(&self) -> f64 {
+        (self.file2_size as f64 / self.chunk_size as f64).ceil()
     }
 
     fn has_at_least_2_chunks(&self, f_size: usize) -> bool {
